@@ -131,9 +131,15 @@ export async function POST(req: Request) {
         return role || person ? { role, person } : null;
       })
       .filter((x: { role: string; person: string } | null): x is { role: string; person: string } => !!x);
-    const existing = doc.teams.find((t) => t.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      existing.slots = slots; // saving under the same name updates the team
+    const id = str(body.id, 40);
+    const byId = id ? doc.teams.find((t) => t.id === id) : undefined;
+    const byName = doc.teams.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (byId) {
+      // editing an existing team by id may also rename it
+      byId.name = name;
+      byId.slots = slots;
+    } else if (byName) {
+      byName.slots = slots; // saving under the same name updates the team
     } else if (doc.teams.length < 50) {
       doc.teams.push({ id: newId("t"), name, slots });
     }

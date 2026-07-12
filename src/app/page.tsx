@@ -228,8 +228,10 @@ export default function WorshipLab() {
       } else if (a === "saveTeam") {
         const name = String(body.name || "").trim();
         const slots = (body.slots as TeamSlot[]) || [];
-        const ex = doc.teams.find(t => t.name.toLowerCase() === name.toLowerCase());
-        if (ex) ex.slots = slots;
+        const byId = body.id ? doc.teams.find(t => t.id === body.id) : undefined;
+        const byName = doc.teams.find(t => t.name.toLowerCase() === name.toLowerCase());
+        if (byId && name) { byId.name = name; byId.slots = slots; }
+        else if (byName) byName.slots = slots;
         else if (name) doc.teams.push({ id: uid("t"), name, slots });
       } else if (a === "deleteTeam") {
         doc.teams = doc.teams.filter(t => t.id !== body.id);
@@ -337,7 +339,8 @@ export default function WorshipLab() {
               onAddPerson={(name, roles) => { churchAction({ action: "addPerson", name, roles }); say(`${name} added to the roster`); }}
               onUpdateRoles={(id, name, roles) => churchAction({ action: "updatePerson", id, name, roles })}
               onDeletePerson={id => churchAction({ action: "deletePerson", id })}
-              onDeleteTeam={id => churchAction({ action: "deleteTeam", id })} />
+              onDeleteTeam={id => churchAction({ action: "deleteTeam", id })}
+              onSaveTeam={(name, slots, id) => { churchAction({ action: "saveTeam", name, slots, ...(id ? { id } : {}) }); say(`Saved team “${name}”`); }} />
           )}
           {view === "calendar" && (
             <CalendarView setlists={setlists}
@@ -398,6 +401,27 @@ function PlannerHome({ setlists, onOpen, onNew }: {
       </div>
       {lists.length === 0 && <p className="empty">No setlists yet — start one for Sunday.</p>}
     </div>
+  );
+}
+
+/* ---------------- shared: role-aware person picker ---------------- */
+
+function PersonSelect({ value, role, people, className, onChange }: {
+  value: string; role: string; people: Person[]; className?: string; onChange: (v: string) => void;
+}) {
+  const plays = role ? people.filter(p => p.roles.includes(role)) : [];
+  const rest = role ? people.filter(p => !p.roles.includes(role)) : people;
+  const opts = (list: Person[]) => list.map(p => <option key={p.id} value={p.name}>{p.name}</option>);
+  return (
+    <select className={className} value={value} aria-label="Person" onChange={e => onChange(e.target.value)}>
+      <option value="">— person —</option>
+      {plays.length > 0 ? (
+        <>
+          <optgroup label={`Plays ${role}`}>{opts(plays)}</optgroup>
+          {rest.length > 0 && <optgroup label="Everyone else">{opts(rest)}</optgroup>}
+        </>
+      ) : opts(rest)}
+    </select>
   );
 }
 
@@ -521,11 +545,8 @@ function Editor({ sl, church, sortedPeople, onBack, onEdit, onDelete, onSaveTeam
                     <option value="">— role —</option>
                     {TEAM_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
-                  <select className="person" value={t.person} aria-label="Person"
-                    onChange={e => onEdit({ team: team.map((x, xi) => xi === i ? { ...x, person: e.target.value } : x) })}>
-                    <option value="">— person —</option>
-                    {sortedPeople.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
+                  <PersonSelect className="person" value={t.person} role={t.role} people={sortedPeople}
+                    onChange={v => onEdit({ team: team.map((x, xi) => xi === i ? { ...x, person: v } : x) })} />
                   <span className="arrows">
                     <button className="icobtn" disabled={i === 0} onClick={() => moveSlot(i, -1)} aria-label="Move up">▲</button>
                     <button className="icobtn" disabled={i === team.length - 1} onClick={() => moveSlot(i, 1)} aria-label="Move down">▼</button>
@@ -677,15 +698,28 @@ function Library({ church, isAdmin, setlists, onAddToSetlist, onAddChurch, onDel
 
 /* ---------------- team ---------------- */
 
-function TeamView({ church, isAdmin, sortedPeople, onAddPerson, onUpdateRoles, onDeletePerson, onDeleteTeam }: {
+function TeamView({ church, isAdmin, sortedPeople, onAddPerson, onUpdateRoles, onDeletePerson, onDeleteTeam, onSaveTeam }: {
   church: ChurchDoc; isAdmin: boolean; sortedPeople: Person[];
   onAddPerson: (name: string, roles: string[]) => void;
   onUpdateRoles: (id: string, name: string, roles: string[]) => void;
   onDeletePerson: (id: string) => void;
   onDeleteTeam: (id: string) => void;
+  onSaveTeam: (name: string, slots: TeamSlot[], id?: string) => void;
 }) {
   const [name, setName] = useState("");
   const [pending, setPending] = useState<string[]>([]);
+  const [builder, setBuilder] = useState<{ id?: string; name: string; slots: TeamSlot[] } | null>(null);
+  const [nameError, setNameError] = useState(false);
+
+  const patchSlot = (i: number, patch: Partial<TeamSlot>) =>
+    setBuilder(b => b && { ...b, slots: b.slots.map((s, si) => si === i ? { ...s, ...patch } : s) });
+  const moveSlot = (i: number, dir: number) =>
+    setBuilder(b => {
+      if (!b) return b;
+      const j = i + dir; if (j < 0 || j >= b.slots.length) return b;
+      const slots = [...b.slots]; [slots[i], slots[j]] = [slots[j], slots[i]];
+      return { ...b, slots };
+    });
   return (
     <div className="view">
       <div className="libhead"><div className="eyebrow">Worship team roster</div><span className="chip gray">{church.people.length} members</span></div>
@@ -726,7 +760,56 @@ function TeamView({ church, isAdmin, sortedPeople, onAddPerson, onUpdateRoles, o
         }}>Add to roster</button>
       </div>
 
-      <div className="libhead" style={{ marginTop: 26 }}><div className="eyebrow">Saved worship teams</div><span className="chip gray">{church.teams.length}</span></div>
+      <div className="libhead" style={{ marginTop: 26 }}>
+        <div className="eyebrow">Saved worship teams</div>
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="chip gray">{church.teams.length}</span>
+          {!builder && <button className="btn primary" onClick={() =>
+            setBuilder({ name: "", slots: [{ role: "Worship Leader", person: "" }, { role: "Vocals", person: "" }] })}>＋ Build a team</button>}
+        </span>
+      </div>
+
+      {builder && (
+        <div className="panel glass" style={{ marginBottom: 14 }}>
+          <h2>{builder.id ? "Edit team" : "New team"} <span className="chip gray">{builder.slots.length} role{builder.slots.length === 1 ? "" : "s"}</span></h2>
+          <div className="addline" style={{ marginTop: 0, marginBottom: 11 }}>
+            <input placeholder="Team name — e.g. First Sunday Team" value={builder.name} autoComplete="off"
+              style={nameError ? { borderColor: "var(--danger)" } : undefined}
+              onChange={e => { setBuilder(b => b && { ...b, name: e.target.value }); setNameError(false); }} />
+          </div>
+          <div className="rows">
+            {builder.slots.map((t, i) => (
+              <div className="row" key={i}>
+                <select className="role" value={t.role} aria-label="Role" onChange={e => patchSlot(i, { role: e.target.value })}>
+                  <option value="">— role —</option>
+                  {TEAM_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <PersonSelect className="person" value={t.person} role={t.role} people={sortedPeople}
+                  onChange={v => patchSlot(i, { person: v })} />
+                <span className="arrows">
+                  <button className="icobtn" disabled={i === 0} onClick={() => moveSlot(i, -1)} aria-label="Move up">▲</button>
+                  <button className="icobtn" disabled={i === builder.slots.length - 1} onClick={() => moveSlot(i, 1)} aria-label="Move down">▼</button>
+                </span>
+                <button className="icobtn" aria-label="Remove"
+                  onClick={() => setBuilder(b => b && { ...b, slots: b.slots.filter((_, si) => si !== i) })}>✕</button>
+              </div>
+            ))}
+          </div>
+          {builder.slots.length === 0 && <p className="empty">Add roles to build out the team.</p>}
+          <div className="teamtools">
+            <button className="btn" onClick={() => setBuilder(b => b && b.slots.length < 20
+              ? { ...b, slots: [...b.slots, { role: "", person: "" }] } : b)}>＋ Add a role</button>
+            <button className="btn primary" onClick={() => {
+              const n = builder.name.trim().slice(0, 60);
+              if (!n) { setNameError(true); return; }
+              onSaveTeam(n, builder.slots.filter(s => s.role || s.person), builder.id);
+              setBuilder(null); setNameError(false);
+            }}>{builder.id ? "Save changes" : "Save team"}</button>
+            <button className="btn ghost" onClick={() => { setBuilder(null); setNameError(false); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {[...church.teams].sort(byName).map(t => (
           <div className="savedteam glass" key={t.id}>
@@ -734,6 +817,8 @@ function TeamView({ church, isAdmin, sortedPeople, onAddPerson, onUpdateRoles, o
               <b>{t.name}</b>
               <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span className="chip gray">{t.slots.length} member{t.slots.length === 1 ? "" : "s"}</span>
+                <button className="icobtn" title="Edit team" aria-label={`Edit ${t.name}`}
+                  onClick={() => { setBuilder({ id: t.id, name: t.name, slots: t.slots.map(s => ({ ...s })) }); window.scrollTo({ top: 0 }); }}>✎</button>
                 {isAdmin && <button className="icobtn" title="Delete team"
                   onClick={() => { if (confirm(`Delete team “${t.name}”?`)) onDeleteTeam(t.id); }}>✕</button>}
               </span>
@@ -744,7 +829,7 @@ function TeamView({ church, isAdmin, sortedPeople, onAddPerson, onUpdateRoles, o
           </div>
         ))}
       </div>
-      {church.teams.length === 0 && <p className="empty">No saved teams yet — assemble one inside a setlist and “Save as team”.</p>}
+      {church.teams.length === 0 && !builder && <p className="empty">No saved teams yet — build one here, or assemble one inside a setlist and “Save as team”.</p>}
     </div>
   );
 }
