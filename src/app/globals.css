@@ -1,7 +1,32 @@
 /* Worship Lab — liquid-glass design over a spectrum of blues and grays. */
 
-/* ---------- tokens ---------- */
+/* ---------- tokens ----------
+   Default (light) theme is drawn from the Mount Greylock Baptist website palette:
+   brand teal #0cc4c6 (hover #09b1b3), steeple-logo blues #186ca5→#1a99c0,
+   white / #f5f5f5 grounds, slate text. Dark theme via [data-theme="dark"]. */
 :root{
+  --bg:#eef4f6;
+  --panel:rgba(255,255,255,.56);
+  --panel-strong:rgba(255,255,255,.78);
+  --edge:rgba(255,255,255,.88);
+  --edge-strong:rgba(24,108,165,.30);
+  --sheen:rgba(255,255,255,.95);
+  --ink:#25353d;
+  --steel:#4d6672;
+  --faint:#7e95a0;
+  --ice:#0b9698;
+  --ice-deep:#186ca5;
+  --ice-ink:#ffffff;
+  --good:#177a4e;
+  --danger:#b23a3a;
+  --chip:rgba(12,196,198,.13);
+  --shadow:0 18px 44px rgba(24,90,110,.20);
+  --orbA:#aee5e6; --orbB:#c9e2f0; --orbC:#8fd4dc; --orbD:#eef6f8;
+  --logo-filter:invert(.55) sepia(.65) saturate(4) hue-rotate(155deg) brightness(.72) drop-shadow(0 2px 6px rgba(24,108,165,.30));
+  --blur:saturate(1.4) blur(22px);
+  --r:14px;
+}
+:root[data-theme="dark"]{
   --bg:#070d18;
   --panel:rgba(150,190,235,.07);
   --panel-strong:rgba(150,190,235,.11);
@@ -20,30 +45,6 @@
   --shadow:0 20px 50px rgba(2,8,20,.55);
   --orbA:#123454; --orbB:#1b2b45; --orbC:#27455f; --orbD:#39536b;
   --logo-filter:drop-shadow(0 2px 8px rgba(80,160,230,.45));
-  --blur:saturate(1.4) blur(22px);
-  --r:14px;
-}
-@media (prefers-color-scheme: light){
-  :root{
-    --bg:#dde5ee;
-    --panel:rgba(255,255,255,.52);
-    --panel-strong:rgba(255,255,255,.72);
-    --edge:rgba(255,255,255,.85);
-    --edge-strong:rgba(30,80,130,.25);
-    --sheen:rgba(255,255,255,.95);
-    --ink:#0f2337;
-    --steel:#4a6076;
-    --faint:#7b8fa3;
-    --ice:#1e6fb8;
-    --ice-deep:#15578f;
-    --ice-ink:#ffffff;
-    --good:#177a4e;
-    --danger:#b23a3a;
-    --chip:rgba(30,111,184,.10);
-    --shadow:0 18px 44px rgba(40,70,110,.22);
-    --orbA:#b9cde2; --orbB:#cddaea; --orbC:#9fbfda; --orbD:#e6edf5;
-    --logo-filter:invert(.62) sepia(.5) saturate(3.5) hue-rotate(175deg) brightness(.65) drop-shadow(0 2px 6px rgba(60,110,170,.3));
-  }
 }
 
 *{box-sizing:border-box; margin:0}
@@ -149,7 +150,9 @@ option{color:#10263f; background:#eef3f9}
 .navbtn:hover{color:var(--steel)}
 .navbtn.on{color:var(--ice); background:var(--panel-strong); border-color:var(--edge);
   box-shadow:inset 0 1px 0 var(--sheen)}
-.dock .authslot{margin-top:auto}
+.dock .authslot{margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:10px}
+.themebtn{width:34px;height:34px}
+.themebtn svg{width:19px;height:19px}
 .main{padding:26px clamp(16px,4vw,44px) 110px; max-width:1180px; width:100%; margin:0 auto; min-width:0}
 
 .tabbar{display:none}

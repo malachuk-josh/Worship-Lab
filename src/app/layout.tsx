@@ -14,11 +14,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1626",
+  themeColor: "#eef4f6",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
+
+// Applied before paint so a saved dark preference doesn't flash light first.
+const themeInit = `try{if(localStorage.getItem("wl-theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -27,8 +30,11 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body>{children}</body>
+      <html lang="en" suppressHydrationWarning>
+        <body>
+          <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

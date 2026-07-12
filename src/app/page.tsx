@@ -113,7 +113,27 @@ export default function WorshipLab() {
     toastTimer.current = setTimeout(() => setToast(""), 1900);
   }, []);
 
-  useEffect(() => { setMounted(true); setVerse(verseOfTheDay()); }, []);
+  /* Theme: light is the default (church-palette); dark is opt-in and remembered. */
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    setMounted(true);
+    setVerse(verseOfTheDay());
+    try { if (localStorage.getItem("wl-theme") === "dark") setTheme("dark"); } catch {}
+  }, []);
+  useEffect(() => {
+    if (theme === "dark") document.documentElement.dataset.theme = "dark";
+    else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem("wl-theme", theme); } catch {}
+  }, [theme]);
+  const themeBtn = (
+    <button className="icobtn themebtn" title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
+      {theme === "dark"
+        ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7" /></svg>
+        : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M20.4 14.2A8.4 8.4 0 0 1 9.8 3.6a8.4 8.4 0 1 0 10.6 10.6Z" /></svg>}
+    </button>
+  );
 
   /* ---- load ---- */
   useEffect(() => {
@@ -254,8 +274,10 @@ export default function WorshipLab() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <span className="mark"><img src="/logo.png" alt="Mount Greylock Baptist Church" /></span>
           {navBtns}
-          <span className="authslot">{cloud ? <UserButton /> : (isLoaded &&
-            <SignInButton mode="modal"><button className="btn" style={{ padding: "7px 10px", fontSize: 12 }}>Sign in</button></SignInButton>)}
+          <span className="authslot">
+            {themeBtn}
+            {cloud ? <UserButton /> : (isLoaded &&
+              <SignInButton mode="modal"><button className="btn" style={{ padding: "7px 10px", fontSize: 12 }}>Sign in</button></SignInButton>)}
           </span>
         </nav>
 
@@ -268,8 +290,10 @@ export default function WorshipLab() {
               <div className="subtitle">Setlists &amp; worship teams · Mount Greylock Baptist Church</div>
             </div>
             <span className="spacer" />
-            <span className="mobileauth">{cloud ? <UserButton /> : (isLoaded &&
-              <SignInButton mode="modal"><button className="btn" style={{ fontSize: 12.5 }}>Sign in</button></SignInButton>)}
+            <span className="mobileauth" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {themeBtn}
+              {cloud ? <UserButton /> : (isLoaded &&
+                <SignInButton mode="modal"><button className="btn" style={{ fontSize: 12.5 }}>Sign in</button></SignInButton>)}
             </span>
           </header>
           {verse && (
